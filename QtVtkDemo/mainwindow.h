@@ -41,6 +41,9 @@ private slots:
     void on_hsElectrode_valueChanged(int value);
 
 private:
+    void LoadDicom(QString file);
+
+private:
     Ui::MainWindow *ui;
     int offsetX;
     int offsetY;
