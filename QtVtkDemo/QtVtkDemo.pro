@@ -2,7 +2,7 @@ QT       += core gui
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
-RootPath=D:\Source\Github\QtVtkDemo
+RootPath=D:\Source\Github\QtVtkDemo\QtVtkDemo
 INCLUDEPATH += include/itk\
             include/vtk\
             include/gdcm

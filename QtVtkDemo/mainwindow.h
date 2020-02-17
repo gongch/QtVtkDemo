@@ -2,10 +2,34 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include "vtkSmartPointer.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
+
+class QVTKOpenGLNativeWidget;
+class vtkGDCMImageReader;
+class vtkPolyDataMapper;
+class vtkActor;
+class vtkCellPicker;
+class vtkProperty;
+class vtkProperty;
+class vtkImagePlaneWidget;
+class vtkGenericOpenGLRenderWindow;
+class vtkRenderer;
+class vtkInteractorStyle;
+class vtkResliceCursorCallback;
+class vtkResliceCursor;
+class vtkResliceCursorWidget;
+class vtkResliceCursorLineRepresentation;
+class vtkMarchingCubes;
+class vtkStripper;
+class vtkRenderWindowInteractor;
+class vtkOutlineFilter;
+class vtkCamera;
+class vtkVectorText;
+class vtkElevationFilter;
 
 class MainWindow : public QMainWindow
 {
@@ -56,5 +80,44 @@ private:
     int opacitySkull;
     int opacityBrain;
     int opacityElectrode;
+
+    QVTKOpenGLNativeWidget* vtkWidget;
+    vtkSmartPointer< vtkGDCMImageReader > reader;
+    vtkSmartPointer<vtkPolyDataMapper> outlineMapper;
+    vtkSmartPointer<vtkActor> outlineActor;
+    vtkSmartPointer<vtkCellPicker> picker;
+    vtkSmartPointer<vtkProperty> ipwProp;
+    vtkSmartPointer<vtkImagePlaneWidget> planeWidget[3];
+    vtkSmartPointer<vtkGenericOpenGLRenderWindow> renWin;
+    // VTK Renderer
+    vtkSmartPointer<vtkRenderer> ren[4];
+
+    vtkSmartPointer< vtkRenderWindowInteractor> iren;
+    vtkSmartPointer < vtkInteractorStyle> style;
+    vtkSmartPointer<vtkResliceCursorCallback> cbk;
+    vtkSmartPointer< vtkResliceCursor > resliceCursor;
+
+    vtkSmartPointer< vtkResliceCursorWidget > resliceCursorWidget[3];
+    vtkSmartPointer< vtkResliceCursorLineRepresentation > resliceCursorRep[3];
+    vtkSmartPointer< vtkMarchingCubes> skinExtractor;
+    vtkSmartPointer<vtkStripper> skinStripper;
+    vtkSmartPointer< vtkPolyDataMapper> skinMapper;
+    vtkSmartPointer< vtkActor> skin;
+    vtkSmartPointer< vtkMarchingCubes> boneExtractor;
+    vtkSmartPointer< vtkStripper> boneStripper;
+    vtkSmartPointer< vtkPolyDataMapper> boneMapper;
+    vtkSmartPointer< vtkActor> bone;
+    vtkSmartPointer< vtkOutlineFilter> outlineData;
+    vtkSmartPointer< vtkPolyDataMapper> mapOutline;
+    vtkSmartPointer< vtkActor> outline;
+    vtkSmartPointer< vtkCamera> aCamera;
+    vtkNew<vtkVectorText> text;
+    vtkNew<vtkElevationFilter> elevation;
+    // Mapper
+    vtkNew<vtkPolyDataMapper> mapper;
+    // Actor in scene
+    vtkNew<vtkActor> actor;
+
+
 };
 #endif // MAINWINDOW_H

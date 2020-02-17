@@ -2,10 +2,8 @@
 # 此 .gitignore 文件已由 Microsoft(R) Visual Studio 自动创建。
 ################################################################################
 
-/QtVtkDemo/.vs/QtVtkDemo/v16
-*.cmake
-*.txt
-*.in
-/QtVtkDemo/Win32/Debug/QtVtkDemo.tlog
-*.log
-/VTKData/Data
+/.vs/QtVtkDemo/v16
+/QtVtkDemo/.vs/QtVtkDemo
+/QtVtkDemo/32bit
+/QtVtkDemo/32bit-Debug
+/QtVtkDemo/debug

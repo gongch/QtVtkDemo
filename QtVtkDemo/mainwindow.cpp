@@ -1,7 +1,8 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
-#include "QVTKOpenGLWidget.h"
+#include "QVTKOpenGLNativeWidget.h"
+#include "QVTKWidget.h"
 #include "vtkGenericOpenGLRenderWindow.h"
 
 #include <vtkAutoInit.h>
@@ -141,9 +142,21 @@ public:
             for (int i = 0; i < 3; i++)
             {
                 vtkPlaneSource* ps = static_cast<vtkPlaneSource*>(this->IPW[i]->GetPolyDataAlgorithm());
-                ps->SetNormal(rc->GetPlane(i)->GetNormal());
-                ps->SetCenter(rc->GetPlane(i)->GetOrigin());
-                this->IPW[i]->UpdatePlacement();
+                bool needToUpdate = false;
+                if (fabs(ps->GetNormal() -rc->GetPlane(i)->GetNormal())>0.01)
+                {
+                    ps->SetNormal(rc->GetPlane(i)->GetNormal());
+                    needToUpdate = true;
+                }
+                if (fabs(ps->GetCenter() - rc->GetPlane(i)->GetOrigin())>0.01)
+                {
+                    ps->SetCenter(rc->GetPlane(i)->GetOrigin());
+                    needToUpdate = true;
+                }
+                if (needToUpdate)
+                {
+                    this->IPW[i]->UpdatePlacement();
+                }
             }
         }
         this->RCW[0]->Render();
@@ -156,9 +169,13 @@ public:
 void MainWindow::LoadDicom(QString file)
 {
 
-    QVTKOpenGLWidget *vtkWidget = new QVTKOpenGLWidget();
+    vtkWidget = new QVTKOpenGLNativeWidget();
     vtkWidget->setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Expanding);
     ui->vlVtk->addWidget(vtkWidget);
+    renWin = vtkSmartPointer<vtkGenericOpenGLRenderWindow>::New();
+    vtkWidget->setRenderWindow(renWin);
+    style = vtkInteractorStyleImage::New();
+    vtkWidget->interactor()->SetInteractorStyle(style);
 
     NamesGeneratorType::Pointer nameGenerator = NamesGeneratorType::New();
     vtkSmartPointer< vtkStringArray > fileArray = vtkSmartPointer< vtkStringArray >::New();
@@ -178,7 +195,7 @@ void MainWindow::LoadDicom(QString file)
 
         }
     }
-    vtkSmartPointer< vtkGDCMImageReader > reader = vtkSmartPointer<vtkGDCMImageReader>::New();
+    reader = vtkSmartPointer<vtkGDCMImageReader>::New();
     reader->SetDataByteOrderToLittleEndian();
     reader->SetDataExtent(0, 63, 0, 63, 1, 93);
     reader->SetDataSpacing(3.2, 3.2, 1.5);
@@ -190,26 +207,21 @@ void MainWindow::LoadDicom(QString file)
     reader->Update();
 
 
-    vtkSmartPointer<vtkPolyDataMapper> outlineMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+    outlineMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
     outlineMapper->SetInputConnection(reader->GetOutputPort());
 
-    vtkSmartPointer<vtkActor> outlineActor = vtkSmartPointer<vtkActor>::New();
+    outlineActor = vtkSmartPointer<vtkActor>::New();
     outlineActor->SetMapper(outlineMapper);
-    vtkSmartPointer<vtkCellPicker> picker = vtkSmartPointer<vtkCellPicker>::New();
+    picker = vtkSmartPointer<vtkCellPicker>::New();
     picker->SetTolerance(0.005);
 
-    vtkSmartPointer<vtkProperty> ipwProp = vtkSmartPointer<vtkProperty>::New();
+    ipwProp = vtkSmartPointer<vtkProperty>::New();
 
-    vtkSmartPointer<vtkImagePlaneWidget> planeWidget[3];
     int imageDims[3];
     reader->GetOutput()->GetDimensions(imageDims);
 
-    vtkNew<vtkGenericOpenGLRenderWindow> renWin;
     renWin->SetMultiSamples(0);
-    vtkWidget->setRenderWindow(renWin);
 
-    // VTK Renderer
-    vtkSmartPointer<vtkRenderer> ren[4];
 
 
 
@@ -220,17 +232,18 @@ void MainWindow::LoadDicom(QString file)
     }
 
 
-    vtkRenderWindowInteractor* iren  = vtkWidget->interactor();
-    vtkInteractorStyle* style = vtkInteractorStyleImage::New();
+    //iren = vtkSmartPointer<vtkRenderWindowInteractor>::New();
     //iren->SetRenderWindow(renWin);
-    iren->SetInteractorStyle(style);
+    
+    //iren->SetRenderWindow(renWin);
+    //iren->SetInteractorStyle(style);
     //->SetInteractorStyle(style);
 
 
     for (int i = 0; i < 3; i++)
         {
             planeWidget[i] = vtkSmartPointer<vtkImagePlaneWidget>::New();
-            planeWidget[i]->SetInteractor(iren);
+            planeWidget[i]->SetInteractor(vtkWidget->interactor());
             planeWidget[i]->SetPicker(picker);
             planeWidget[i]->RestrictPlaneToVolumeOn();
             double color[3] = { 0, 0, 0 };
@@ -254,22 +267,20 @@ void MainWindow::LoadDicom(QString file)
 
 
 
-    vtkSmartPointer<vtkResliceCursorCallback> cbk = vtkSmartPointer<vtkResliceCursorCallback>::New();
-    vtkSmartPointer< vtkResliceCursor > resliceCursor = vtkSmartPointer< vtkResliceCursor >::New();
+    cbk = vtkSmartPointer<vtkResliceCursorCallback>::New();
+    resliceCursor = vtkSmartPointer< vtkResliceCursor >::New();
     resliceCursor->SetCenter(reader->GetOutput()->GetCenter());
     resliceCursor->SetThickMode(0);
     resliceCursor->SetThickness(10, 10, 10);
     resliceCursor->SetImage(reader->GetOutput());
 
 
-    vtkSmartPointer< vtkResliceCursorWidget > resliceCursorWidget[3];
-    vtkSmartPointer< vtkResliceCursorLineRepresentation > resliceCursorRep[3];
 
     double viewUp[3][3] = { { 0, 0, -1 }, { 0, 0, 1 }, { 0, 1, 0 } };
     for (int i = 0; i < 3; i++)
     {
         resliceCursorWidget[i] = vtkSmartPointer< vtkResliceCursorWidget >::New();
-        resliceCursorWidget[i]->SetInteractor(iren);
+        resliceCursorWidget[i]->SetInteractor(vtkWidget->interactor());
 
         resliceCursorRep[i] = vtkSmartPointer< vtkResliceCursorLineRepresentation >::New();
         resliceCursorWidget[i]->SetRepresentation(resliceCursorRep[i]);
@@ -304,18 +315,18 @@ void MainWindow::LoadDicom(QString file)
     }
 
 
-    vtkSmartPointer< vtkMarchingCubes> skinExtractor = vtkSmartPointer<vtkMarchingCubes>::New();
+    skinExtractor = vtkSmartPointer<vtkMarchingCubes>::New();
     skinExtractor->SetInputConnection(reader->GetOutputPort());
     skinExtractor->SetValue(0, 500);
 
-    vtkSmartPointer<vtkStripper> skinStripper = vtkSmartPointer<vtkStripper>::New();
+    skinStripper = vtkSmartPointer<vtkStripper>::New();
     skinStripper->SetInputConnection(skinExtractor->GetOutputPort());
 
-    vtkSmartPointer< vtkPolyDataMapper> skinMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+    skinMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
     skinMapper->SetInputConnection(skinStripper->GetOutputPort());
     skinMapper->ScalarVisibilityOff();
 
-    vtkSmartPointer< vtkActor> skin = vtkSmartPointer< vtkActor>::New();
+    skin = vtkSmartPointer< vtkActor>::New();
     skin->SetMapper(skinMapper);
     skin->GetProperty()->SetDiffuseColor(255 / 256.0, 125 / 256.0, 64 / 256.0);
     skin->GetProperty()->SetSpecular(.3);
@@ -324,35 +335,35 @@ void MainWindow::LoadDicom(QString file)
 
 
 
-    vtkSmartPointer< vtkMarchingCubes> boneExtractor = vtkSmartPointer< vtkMarchingCubes>::New();
+     boneExtractor = vtkSmartPointer< vtkMarchingCubes>::New();
     boneExtractor->SetInputConnection(reader->GetOutputPort());
     boneExtractor->SetValue(0, 1150);
 
-    vtkSmartPointer< vtkStripper> boneStripper = vtkSmartPointer< vtkStripper>::New();
+     boneStripper = vtkSmartPointer< vtkStripper>::New();
     boneStripper->SetInputConnection(boneExtractor->GetOutputPort());
 
-    vtkSmartPointer< vtkPolyDataMapper> boneMapper = vtkSmartPointer< vtkPolyDataMapper>::New();
+     boneMapper = vtkSmartPointer< vtkPolyDataMapper>::New();
     boneMapper->SetInputConnection(boneStripper->GetOutputPort());
     boneMapper->ScalarVisibilityOff();
 
-    vtkSmartPointer< vtkActor> bone = vtkSmartPointer< vtkActor>::New();
+    bone = vtkSmartPointer< vtkActor>::New();
     bone->SetMapper(boneMapper);
     bone->GetProperty()->SetDiffuseColor(255 / 256.0, 255 / 256.0, 240 / 256.0);
     bone->GetProperty()->SetOpacity(.5);
 
 
 
-    vtkSmartPointer< vtkOutlineFilter> outlineData = vtkSmartPointer< vtkOutlineFilter>::New();
+    outlineData = vtkSmartPointer< vtkOutlineFilter>::New();
     outlineData->SetInputConnection(reader->GetOutputPort());
 
-    vtkSmartPointer< vtkPolyDataMapper> mapOutline = vtkSmartPointer< vtkPolyDataMapper>::New();
+    mapOutline = vtkSmartPointer< vtkPolyDataMapper>::New();
     mapOutline->SetInputConnection(outlineData->GetOutputPort());
 
-    vtkSmartPointer< vtkActor> outline = vtkSmartPointer< vtkActor>::New();
+     outline = vtkSmartPointer< vtkActor>::New();
     outline->SetMapper(mapOutline);
     outline->GetProperty()->SetColor(0, 0, 0);
 
-    vtkSmartPointer< vtkCamera> aCamera = vtkSmartPointer<vtkCamera>::New();
+     aCamera = vtkSmartPointer<vtkCamera>::New();
     aCamera->SetViewUp(0, 0, -2);
     aCamera->SetPosition(0, -2, 0);
     aCamera->SetFocalPoint(0, 0, 0);
@@ -361,19 +372,13 @@ void MainWindow::LoadDicom(QString file)
     aCamera->Elevation(30.0);
 
 
-    vtkNew<vtkVectorText> text;
     text->SetText("VTK and Qt!");
-    vtkNew<vtkElevationFilter> elevation;
     elevation->SetInputConnection(text->GetOutputPort());
     elevation->SetLowPoint(0, 0, 0);
     elevation->SetHighPoint(10, 0, 0);
 
-    // Mapper
-    vtkNew<vtkPolyDataMapper> mapper;
     mapper->SetInputConnection(elevation->GetOutputPort());
 
-    // Actor in scene
-    vtkNew<vtkActor> actor;
     actor->SetMapper(mapper);
 
 
@@ -395,9 +400,16 @@ void MainWindow::LoadDicom(QString file)
     ren[3]->SetViewport(0.5, 0.5, 1, 1);
 
     ren[3]->ResetCamera();
+    vtkWidget->setEnabled(true);
     // VTK/Qt wedded
+    //if (!iren->GetInitialized())
+    {
+        //iren->Initialize();
+        //iren->Enable();
 
-    reader->GetOutput()->GetDimensions(imageDims);
+    }
+
+    //reader->GetOutput()->GetDimensions(imageDims);
 
 }
 
