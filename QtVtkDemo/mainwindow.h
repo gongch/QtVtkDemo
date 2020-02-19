@@ -111,10 +111,6 @@ private:
     vtkSmartPointer< vtkPolyDataMapper> mapOutline;
     vtkSmartPointer< vtkActor> outline;
     vtkSmartPointer< vtkCamera> aCamera;
-    vtkNew<vtkVectorText> text;
-    vtkNew<vtkElevationFilter> elevation;
-    // Mapper
-    vtkNew<vtkPolyDataMapper> mapper;
     // Actor in scene
     vtkNew<vtkActor> actor;
 

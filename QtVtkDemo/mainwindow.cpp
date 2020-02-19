@@ -47,11 +47,13 @@
 #include "vtkMarchingCubes.h"
 #include "vtkStripper.h"
 #include "vtkOutlineFilter.h"
-
+#include "vtkTransform.h"
 #include "gdcmDICOMDIR.h"
-
+#include "vtkImageShrink3D.h"
 #include <itkGDCMSeriesFileNames.h>
-
+#include "vtkDecimatePro.h"
+#include "vtkSmoothPolyDataFilter.h"
+#include "vtkPolyDataNormals.h"
 VTK_MODULE_INIT(vtkRenderingOpenGL2)
 VTK_MODULE_INIT(vtkInteractionStyle)
 
@@ -143,12 +145,17 @@ public:
             {
                 vtkPlaneSource* ps = static_cast<vtkPlaneSource*>(this->IPW[i]->GetPolyDataAlgorithm());
                 bool needToUpdate = false;
-                if (fabs(ps->GetNormal() -rc->GetPlane(i)->GetNormal())>0.01)
+                double* normals= ps->GetNormal();
+                double* normals2 = rc->GetPlane(i)->GetNormal();
+
+                if(fabs(normals[0]-normals2[0])+ fabs(normals[1] - normals2[1])+ fabs(normals[2] - normals2[2])>0.01)
                 {
                     ps->SetNormal(rc->GetPlane(i)->GetNormal());
                     needToUpdate = true;
                 }
-                if (fabs(ps->GetCenter() - rc->GetPlane(i)->GetOrigin())>0.01)
+                double* centers = ps->GetCenter();
+                double* centers2 = rc->GetPlane(i)->GetOrigin();
+                if (fabs(centers[0] - centers2[0]) + fabs(centers[1] - centers2[1]) + fabs(centers[2] - centers2[2]) > 0.01)
                 {
                     ps->SetCenter(rc->GetPlane(i)->GetOrigin());
                     needToUpdate = true;
@@ -206,9 +213,15 @@ void MainWindow::LoadDicom(QString file)
     reader->SetFileNames(fileArray);
     reader->Update();
 
+    vtkSmartPointer<vtkImageShrink3D> shrink = vtkImageShrink3D::New();//抽取样点，显示数量减少速达加快
+
+    shrink->SetShrinkFactors(4, 4, 1);
+
+    shrink->AveragingOn();
+    shrink->SetInputConnection(reader->GetOutputPort());
 
     outlineMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
-    outlineMapper->SetInputConnection(reader->GetOutputPort());
+    outlineMapper->SetInputConnection(shrink->GetOutputPort());
 
     outlineActor = vtkSmartPointer<vtkActor>::New();
     outlineActor->SetMapper(outlineMapper);
@@ -297,8 +310,8 @@ void MainWindow::LoadDicom(QString file)
         resliceCursorWidget[i]->SetEnabled(1);
 
         ren[i]->GetActiveCamera()->SetFocalPoint(0, 0, 0);
-        double camPos[3] = { 0, 0, 0 };
-        camPos[i] = 1;
+        double camPos[3] = { 10, 10, 10 };
+        //camPos[i] = 1;
         ren[i]->GetActiveCamera()->SetPosition(camPos);
         ren[i]->GetActiveCamera()->ParallelProjectionOn();
         ren[i]->GetActiveCamera()->SetViewUp(viewUp[i][0], viewUp[i][1], viewUp[i][2]);
@@ -314,15 +327,38 @@ void MainWindow::LoadDicom(QString file)
         planeWidget[i]->GetColorMap()->SetLookupTable(resliceCursorRep[0]->GetLookupTable());
     }
 
+    
+    //skinExtractor = vtkSmartPointer<vtkMarchingCubes>::New();
+    //skinExtractor->SetInputConnection(shrink->GetOutputPort());
+    //skinExtractor->SetValue(0, 500);
+
+    //skinStripper = vtkSmartPointer<vtkStripper>::New();
+    //skinStripper->SetInputConnection(skinExtractor->GetOutputPort());
+
+    //skinMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+    //skinMapper->SetInputConnection(skinStripper->GetOutputPort());
+    //skinMapper->ScalarVisibilityOff();
 
     skinExtractor = vtkSmartPointer<vtkMarchingCubes>::New();
-    skinExtractor->SetInputConnection(reader->GetOutputPort());
-    skinExtractor->SetValue(0, 500);
 
+    //建立一个Marching Cubes 算法的对象，从CT切片数据中提取出皮肤
+
+    skinExtractor->SetValue(0, 500); //提取出CT 值为300
+
+    skinExtractor->SetInputConnection(shrink->GetOutputPort());
+
+    vtkDecimatePro* deci = vtkDecimatePro::New(); //减少数据读取点，以牺牲数据量加速交互
+    deci->SetTargetReduction(0.3);
+    deci->SetInputConnection(skinExtractor->GetOutputPort());
+    vtkSmoothPolyDataFilter* smooth =  vtkSmoothPolyDataFilter::New();  //使图像更加光滑
+    smooth->SetInputConnection(deci->GetOutputPort());
+    smooth->SetNumberOfIterations(200);
+    vtkPolyDataNormals* skinNormals = vtkPolyDataNormals::New();  //求法线
+    skinNormals->SetInputConnection(smooth->GetOutputPort());
+    skinNormals->SetFeatureAngle(60.0);
     skinStripper = vtkSmartPointer<vtkStripper>::New();
-    skinStripper->SetInputConnection(skinExtractor->GetOutputPort());
-
-    skinMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+    skinStripper->SetInputConnection(skinNormals->GetOutputPort());
+    skinMapper = vtkSmartPointer< vtkPolyDataMapper>::New();
     skinMapper->SetInputConnection(skinStripper->GetOutputPort());
     skinMapper->ScalarVisibilityOff();
 
@@ -336,8 +372,18 @@ void MainWindow::LoadDicom(QString file)
 
 
      boneExtractor = vtkSmartPointer< vtkMarchingCubes>::New();
-    boneExtractor->SetInputConnection(reader->GetOutputPort());
+    boneExtractor->SetInputConnection(shrink->GetOutputPort());
     boneExtractor->SetValue(0, 1150);
+
+    vtkDecimatePro* boneDeci = vtkDecimatePro::New(); //减少数据读取点，以牺牲数据量加速交互
+    boneDeci->SetTargetReduction(0.3);
+    boneDeci->SetInputConnection(boneExtractor->GetOutputPort());
+    vtkSmoothPolyDataFilter* boneSmooth = vtkSmoothPolyDataFilter::New();  //使图像更加光滑
+    boneSmooth->SetInputConnection(boneDeci->GetOutputPort());
+    boneSmooth->SetNumberOfIterations(200);
+    vtkPolyDataNormals* boneNormals = vtkPolyDataNormals::New();  //求法线
+    boneNormals->SetInputConnection(boneSmooth->GetOutputPort());
+    boneNormals->SetFeatureAngle(60.0);
 
      boneStripper = vtkSmartPointer< vtkStripper>::New();
     boneStripper->SetInputConnection(boneExtractor->GetOutputPort());
@@ -351,17 +397,7 @@ void MainWindow::LoadDicom(QString file)
     bone->GetProperty()->SetDiffuseColor(255 / 256.0, 255 / 256.0, 240 / 256.0);
     bone->GetProperty()->SetOpacity(.5);
 
-
-
-    outlineData = vtkSmartPointer< vtkOutlineFilter>::New();
-    outlineData->SetInputConnection(reader->GetOutputPort());
-
-    mapOutline = vtkSmartPointer< vtkPolyDataMapper>::New();
-    mapOutline->SetInputConnection(outlineData->GetOutputPort());
-
-     outline = vtkSmartPointer< vtkActor>::New();
-    outline->SetMapper(mapOutline);
-    outline->GetProperty()->SetColor(0, 0, 0);
+    
 
      aCamera = vtkSmartPointer<vtkCamera>::New();
     aCamera->SetViewUp(0, 0, -2);
@@ -370,17 +406,6 @@ void MainWindow::LoadDicom(QString file)
     aCamera->ComputeViewPlaneNormal();
     aCamera->Azimuth(30.0);
     aCamera->Elevation(30.0);
-
-
-    text->SetText("VTK and Qt!");
-    elevation->SetInputConnection(text->GetOutputPort());
-    elevation->SetLowPoint(0, 0, 0);
-    elevation->SetHighPoint(10, 0, 0);
-
-    mapper->SetInputConnection(elevation->GetOutputPort());
-
-    actor->SetMapper(mapper);
-
 
 
 
@@ -429,6 +454,30 @@ void MainWindow::on_hsOffsetX_valueChanged(int value)
 {
     this->offsetX = value;
     ui->lOffsetX->setText(tr("%1").arg(value));
+    int i = 1;
+    
+    double selPt[3] = { 0,value , 0 }; // 平移的目标位置
+    double center[3];
+
+
+
+    planeWidget[i]->GetCenter(center);
+
+    vtkSmartPointer <vtkTransform> transform =
+        vtkSmartPointer <vtkTransform>::New();
+    transform->Translate(selPt[0] - center[0],
+        selPt[1] - center[1],
+        selPt[2] - center[2]);
+
+    double newpt[3];
+    transform->TransformPoint(planeWidget[i]->GetPoint1(), newpt);
+    planeWidget[i]->SetPoint1(newpt);
+    transform->TransformPoint(planeWidget[i]->GetPoint2(), newpt);
+    planeWidget[i]->SetPoint2(newpt);
+    transform->TransformPoint(planeWidget[i]->GetOrigin(), newpt);
+    planeWidget[i]->SetOrigin(newpt);
+    planeWidget[i]->UpdatePlacement();
+    resliceCursorWidget[0]->Render();
 }
 
 void MainWindow::on_hsOffsetY_valueChanged(int value)
