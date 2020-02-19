@@ -7,7 +7,7 @@ int main(int argc, char *argv[])
 {
     QSurfaceFormat::setDefaultFormat(QVTKOpenGLWidget::defaultFormat());
     QApplication a(argc, argv);
-     QVTKOpenGLWidget widget;
+     //QVTKOpenGLWidget widget;
     QApplication::setStyle("fusion");
     MainWindow w;
     w.show();

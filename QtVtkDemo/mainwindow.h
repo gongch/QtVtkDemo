@@ -30,6 +30,7 @@ class vtkOutlineFilter;
 class vtkCamera;
 class vtkVectorText;
 class vtkElevationFilter;
+class vtkImageViewer2;
 
 class MainWindow : public QMainWindow
 {
@@ -72,6 +73,9 @@ private:
     int offsetX;
     int offsetY;
     int offsetZ;
+    int centerX;
+    int centerY;
+    int centerZ;
     int rotateX;
     int rotateY;
     int rotateZ;
@@ -88,6 +92,7 @@ private:
     vtkSmartPointer<vtkCellPicker> picker;
     vtkSmartPointer<vtkProperty> ipwProp;
     vtkSmartPointer<vtkImagePlaneWidget> planeWidget[3];
+    vtkSmartPointer<vtkImageViewer2> imageViewer2[3];
     vtkSmartPointer<vtkGenericOpenGLRenderWindow> renWin;
     // VTK Renderer
     vtkSmartPointer<vtkRenderer> ren[4];

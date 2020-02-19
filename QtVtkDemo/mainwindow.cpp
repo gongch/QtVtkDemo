@@ -54,6 +54,9 @@
 #include "vtkDecimatePro.h"
 #include "vtkSmoothPolyDataFilter.h"
 #include "vtkPolyDataNormals.h"
+#include "vtkImageViewer2.h"
+
+
 VTK_MODULE_INIT(vtkRenderingOpenGL2)
 VTK_MODULE_INIT(vtkInteractionStyle)
 
@@ -254,90 +257,51 @@ void MainWindow::LoadDicom(QString file)
 
 
     for (int i = 0; i < 3; i++)
-        {
-            planeWidget[i] = vtkSmartPointer<vtkImagePlaneWidget>::New();
-            planeWidget[i]->SetInteractor(vtkWidget->interactor());
-            planeWidget[i]->SetPicker(picker);
-            planeWidget[i]->RestrictPlaneToVolumeOn();
-            double color[3] = { 0, 0, 0 };
-            color[i] = 1;
-            planeWidget[i]->GetPlaneProperty()->SetColor(color);
-            planeWidget[i]->SetTexturePlaneProperty(ipwProp);
-            planeWidget[i]->TextureInterpolateOff();
-            planeWidget[i]->SetResliceInterpolateToLinear();
-            planeWidget[i]->SetInputConnection(reader->GetOutputPort());
-            planeWidget[i]->SetPlaneOrientation(i);
-            planeWidget[i]->SetSliceIndex(imageDims[i] / 2);
-            planeWidget[i]->DisplayTextOn();
-            planeWidget[i]->SetDefaultRenderer(ren[3]);
-            planeWidget[i]->SetWindowLevel(1358, -27);
-            planeWidget[i]->On();
-            planeWidget[i]->InteractionOn();
-        }
-
-        planeWidget[1]->SetLookupTable(planeWidget[0]->GetLookupTable());
-        planeWidget[2]->SetLookupTable(planeWidget[0]->GetLookupTable());
-
-
-
-    cbk = vtkSmartPointer<vtkResliceCursorCallback>::New();
-    resliceCursor = vtkSmartPointer< vtkResliceCursor >::New();
-    resliceCursor->SetCenter(reader->GetOutput()->GetCenter());
-    resliceCursor->SetThickMode(0);
-    resliceCursor->SetThickness(10, 10, 10);
-    resliceCursor->SetImage(reader->GetOutput());
-
-
-
-    double viewUp[3][3] = { { 0, 0, -1 }, { 0, 0, 1 }, { 0, 1, 0 } };
-    for (int i = 0; i < 3; i++)
     {
-        resliceCursorWidget[i] = vtkSmartPointer< vtkResliceCursorWidget >::New();
-        resliceCursorWidget[i]->SetInteractor(vtkWidget->interactor());
-
-        resliceCursorRep[i] = vtkSmartPointer< vtkResliceCursorLineRepresentation >::New();
-        resliceCursorWidget[i]->SetRepresentation(resliceCursorRep[i]);
-        resliceCursorRep[i]->GetResliceCursorActor()->GetCursorAlgorithm()->SetResliceCursor(resliceCursor);
-        resliceCursorRep[i]->GetResliceCursorActor()->GetCursorAlgorithm()->SetReslicePlaneNormal(i);
-
-        const double minVal = reader->GetOutput()->GetScalarRange()[0];
-        if (vtkImageReslice* reslice = vtkImageReslice::SafeDownCast(resliceCursorRep[i]->GetReslice()))
+        imageViewer2[i] = vtkSmartPointer< vtkImageViewer2>::New();
+        imageViewer2[i]->SetInputConnection(reader->GetOutputPort());
+        imageViewer2[i]->SetRenderWindow(renWin);
+        imageViewer2[i]->SetRenderer(ren[i]);
+        imageViewer2[i]->SetColorLevel(500);
+        imageViewer2[i]->SetColorWindow(2000);
+        int min;
+        int max;
+        switch (i)
         {
-            reslice->SetBackgroundColor(minVal, minVal, minVal, minVal);
+        case 0:
+            imageViewer2[i]->SetSliceOrientationToYZ();
+            min = imageViewer2[i]->GetSliceMin();
+            max = imageViewer2[i]->GetSliceMax();
+            centerX = (max + min) / 2;
+            ui->hsOffsetX->setMinimum(min - centerX);
+            ui->hsOffsetX->setMaximum(max - centerX);
+            ui->hsOffsetX->setValue(0);
+            break;
+        case 1:
+            imageViewer2[i]->SetSliceOrientationToXZ();
+            min = imageViewer2[i]->GetSliceMin();
+            max = imageViewer2[i]->GetSliceMax();
+            centerY = (max + min) / 2;
+            ui->hsOffsetY->setMinimum(min - centerY);
+            ui->hsOffsetY->setMaximum(max - centerY);
+            ui->hsOffsetY->setValue((max + min) / 2 - centerY);
+            break;
+        case 2:
+            imageViewer2[i]->SetSliceOrientationToXY();
+            min = imageViewer2[i]->GetSliceMin();
+            max = imageViewer2[i]->GetSliceMax();
+            centerZ = (max + min) / 2;
+            ui->hsOffsetZ->setMinimum(min - centerZ);
+            ui->hsOffsetZ->setMaximum(max - centerZ);
+            ui->hsOffsetZ->setValue((max + min) / 2 - centerZ);
+            break;
         }
+        imageViewer2[i]->Render();
+        imageViewer2[i]->GetRenderer()->SetBackground(1, 1, 1);
+        imageViewer2[i]->GetRenderWindow()->SetWindowName("ImageViewer2D");
 
-        resliceCursorWidget[i]->SetDefaultRenderer(ren[i]);
-        resliceCursorWidget[i]->SetEnabled(1);
 
-        ren[i]->GetActiveCamera()->SetFocalPoint(0, 0, 0);
-        double camPos[3] = { 10, 10, 10 };
-        //camPos[i] = 1;
-        ren[i]->GetActiveCamera()->SetPosition(camPos);
-        ren[i]->GetActiveCamera()->ParallelProjectionOn();
-        ren[i]->GetActiveCamera()->SetViewUp(viewUp[i][0], viewUp[i][1], viewUp[i][2]);
-        ren[i]->ResetCamera();
-        cbk->IPW[i] = planeWidget[i];
-        cbk->RCW[i] = resliceCursorWidget[i];
-        resliceCursorWidget[i]->AddObserver(vtkResliceCursorWidget::ResliceAxesChangedEvent, cbk);
-        double range[2];
-        reader->GetOutput()->GetScalarRange(range);
-        resliceCursorRep[i]->SetWindowLevel(range[1] - range[0], (range[0] + range[1]) / 2.0);
-        planeWidget[i]->SetWindowLevel(range[1] - range[0], (range[0] + range[1]) / 2.0);
-        resliceCursorRep[i]->SetLookupTable(resliceCursorRep[0]->GetLookupTable());
-        planeWidget[i]->GetColorMap()->SetLookupTable(resliceCursorRep[0]->GetLookupTable());
     }
-
-    
-    //skinExtractor = vtkSmartPointer<vtkMarchingCubes>::New();
-    //skinExtractor->SetInputConnection(shrink->GetOutputPort());
-    //skinExtractor->SetValue(0, 500);
-
-    //skinStripper = vtkSmartPointer<vtkStripper>::New();
-    //skinStripper->SetInputConnection(skinExtractor->GetOutputPort());
-
-    //skinMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
-    //skinMapper->SetInputConnection(skinStripper->GetOutputPort());
-    //skinMapper->ScalarVisibilityOff();
 
     skinExtractor = vtkSmartPointer<vtkMarchingCubes>::New();
 
@@ -399,7 +363,7 @@ void MainWindow::LoadDicom(QString file)
 
     
 
-     aCamera = vtkSmartPointer<vtkCamera>::New();
+    aCamera = vtkSmartPointer<vtkCamera>::New();
     aCamera->SetViewUp(0, 0, -2);
     aCamera->SetPosition(0, -2, 0);
     aCamera->SetFocalPoint(0, 0, 0);
@@ -426,15 +390,6 @@ void MainWindow::LoadDicom(QString file)
 
     ren[3]->ResetCamera();
     vtkWidget->setEnabled(true);
-    // VTK/Qt wedded
-    //if (!iren->GetInitialized())
-    {
-        //iren->Initialize();
-        //iren->Enable();
-
-    }
-
-    //reader->GetOutput()->GetDimensions(imageDims);
 
 }
 
@@ -459,43 +414,43 @@ void MainWindow::on_hsOffsetX_valueChanged(int value)
     double selPt[3] = { 0,value , 0 }; // 平移的目标位置
     double center[3];
 
+    imageViewer2[0]->SetSlice(value+centerX);
 
 
-    planeWidget[i]->GetCenter(center);
 
-    vtkSmartPointer <vtkTransform> transform =
-        vtkSmartPointer <vtkTransform>::New();
-    transform->Translate(selPt[0] - center[0],
-        selPt[1] - center[1],
-        selPt[2] - center[2]);
-
-    double newpt[3];
-    transform->TransformPoint(planeWidget[i]->GetPoint1(), newpt);
-    planeWidget[i]->SetPoint1(newpt);
-    transform->TransformPoint(planeWidget[i]->GetPoint2(), newpt);
-    planeWidget[i]->SetPoint2(newpt);
-    transform->TransformPoint(planeWidget[i]->GetOrigin(), newpt);
-    planeWidget[i]->SetOrigin(newpt);
-    planeWidget[i]->UpdatePlacement();
-    resliceCursorWidget[0]->Render();
 }
 
 void MainWindow::on_hsOffsetY_valueChanged(int value)
 {
     this->offsetY = value;
     ui->lOffsetY->setText(tr("%1").arg(value));
+    imageViewer2[1]->SetSlice(value + centerY);
 }
 
 void MainWindow::on_hsOffsetZ_valueChanged(int value)
 {
     this->offsetZ = value;
     ui->lOffsetZ->setText(tr("%1").arg(value));
+    imageViewer2[2]->SetSlice(value + centerZ);
 }
 
 void MainWindow::on_hsRotateX_valueChanged(int value)
 {
     this->rotateX = value;
     ui->lRotateX->setText(tr("%1").arg(value));
+    double * position = skin->GetPosition();
+    double* origin = skin->GetOrigin();
+    vtkTransform* myTrans = vtkTransform::New();
+    myTrans->Translate(position[0], position[1], position[2]);
+    myTrans->Translate(origin[0], origin[1], origin[2]);
+    myTrans->RotateX(value);
+    myTrans->Translate(-origin[0], -origin[1], -origin[2]);
+
+    skin->SetUserTransform(myTrans);
+    bone->SetUserTransform(myTrans);
+    ren[3]->ResetCamera();
+    //skin->RotateWXYZ(value, 1, 0, 0);
+    //bone->RotateWXYZ(value, 1, 0, 0);
 }
 
 void MainWindow::on_hsRotateY_valueChanged(int value)
@@ -514,6 +469,8 @@ void MainWindow::on_hsSkin_valueChanged(int value)
 {
     this->opacitySkin = value;
     ui->lSkin->setText(tr("%1").arg(value));
+    skin->GetProperty()->SetOpacity(value/100.0);
+    ren[3]->ResetCamera();
 }
 
 void MainWindow::on_hsMusle_valueChanged(int value)
