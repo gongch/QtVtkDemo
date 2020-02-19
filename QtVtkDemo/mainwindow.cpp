@@ -329,9 +329,11 @@ void MainWindow::LoadDicom(QString file)
     skin = vtkSmartPointer< vtkActor>::New();
     skin->SetMapper(skinMapper);
     skin->GetProperty()->SetDiffuseColor(255 / 256.0, 125 / 256.0, 64 / 256.0);
-    skin->GetProperty()->SetSpecular(.3);
-    skin->GetProperty()->SetSpecularPower(20);
-    skin->GetProperty()->SetOpacity(.3);
+    skin->GetProperty()->SetOpacity(.5);
+    skin->GetProperty()->SetAmbient(0.2);                               //环境光系数
+    skin->GetProperty()->SetDiffuse(0.9);                               //漫反射
+    skin->GetProperty()->SetSpecular(0.2);                              //高光系数
+    skin->GetProperty()->SetSpecularPower(10);                          //高光强度 
 
 
 
@@ -360,6 +362,12 @@ void MainWindow::LoadDicom(QString file)
     bone->SetMapper(boneMapper);
     bone->GetProperty()->SetDiffuseColor(255 / 256.0, 255 / 256.0, 240 / 256.0);
     bone->GetProperty()->SetOpacity(.5);
+
+    bone->GetProperty()->SetAmbient(0.2);                               //环境光系数
+    bone->GetProperty()->SetDiffuse(0.9);                               //漫反射
+    bone->GetProperty()->SetSpecular(0.2);                              //高光系数
+    bone->GetProperty()->SetSpecularPower(10);                          //高光强度 
+
     double* center = bone->GetCenter();
     bone->SetOrigin(center);
     skin->SetOrigin(center);
@@ -382,7 +390,6 @@ void MainWindow::LoadDicom(QString file)
     ren[3]->SetBackground(0.1, 0.1, 0.1);
 
     // Add Actor to renderer
-    ren[3]->AddActor(outline);
     ren[3]->AddActor(skin);
     ren[3]->AddActor(bone);
 

@@ -114,7 +114,6 @@ private:
     vtkSmartPointer< vtkActor> bone;
     vtkSmartPointer< vtkOutlineFilter> outlineData;
     vtkSmartPointer< vtkPolyDataMapper> mapOutline;
-    vtkSmartPointer< vtkActor> outline;
     vtkSmartPointer< vtkCamera> aCamera;
     // Actor in scene
     vtkNew<vtkActor> actor;
