@@ -349,10 +349,10 @@ void MainWindow::LoadDicom(QString file)
     boneNormals->SetInputConnection(boneSmooth->GetOutputPort());
     boneNormals->SetFeatureAngle(60.0);
 
-     boneStripper = vtkSmartPointer< vtkStripper>::New();
+    boneStripper = vtkSmartPointer< vtkStripper>::New();
     boneStripper->SetInputConnection(boneExtractor->GetOutputPort());
 
-     boneMapper = vtkSmartPointer< vtkPolyDataMapper>::New();
+    boneMapper = vtkSmartPointer< vtkPolyDataMapper>::New();
     boneMapper->SetInputConnection(boneStripper->GetOutputPort());
     boneMapper->ScalarVisibilityOff();
 
@@ -360,6 +360,9 @@ void MainWindow::LoadDicom(QString file)
     bone->SetMapper(boneMapper);
     bone->GetProperty()->SetDiffuseColor(255 / 256.0, 255 / 256.0, 240 / 256.0);
     bone->GetProperty()->SetOpacity(.5);
+    double* center = bone->GetCenter();
+    bone->SetOrigin(center);
+    skin->SetOrigin(center);
 
     
 
@@ -436,33 +439,29 @@ void MainWindow::on_hsOffsetZ_valueChanged(int value)
 
 void MainWindow::on_hsRotateX_valueChanged(int value)
 {
-    this->rotateX = value;
     ui->lRotateX->setText(tr("%1").arg(value));
-    double * position = skin->GetPosition();
-    double* origin = skin->GetOrigin();
-    vtkTransform* myTrans = vtkTransform::New();
-    myTrans->Translate(position[0], position[1], position[2]);
-    myTrans->Translate(origin[0], origin[1], origin[2]);
-    myTrans->RotateX(value);
-    myTrans->Translate(-origin[0], -origin[1], -origin[2]);
-
-    skin->SetUserTransform(myTrans);
-    bone->SetUserTransform(myTrans);
-    ren[3]->ResetCamera();
-    //skin->RotateWXYZ(value, 1, 0, 0);
-    //bone->RotateWXYZ(value, 1, 0, 0);
+    skin->RotateX(value-this->rotateX);
+    bone->RotateX(value - this->rotateX);
+    renWin->Render();
+    this->rotateX = value;
 }
 
 void MainWindow::on_hsRotateY_valueChanged(int value)
 {
-    this->rotateY = value;
     ui->lRotateY->setText(tr("%1").arg(value));
+    skin->RotateY(value - this->rotateY);
+    bone->RotateY(value - this->rotateY);
+    renWin->Render();
+    this->rotateY = value;
 }
 
 void MainWindow::on_hsRotateZ_valueChanged(int value)
 {
-    this->rotateZ = value;
     ui->lRotateZ->setText(tr("%1").arg(value));
+    skin->RotateZ(value - this->rotateZ);
+    bone->RotateZ(value - this->rotateZ);
+    renWin->Render();
+    this->rotateZ = value;
 }
 
 void MainWindow::on_hsSkin_valueChanged(int value)
@@ -470,7 +469,7 @@ void MainWindow::on_hsSkin_valueChanged(int value)
     this->opacitySkin = value;
     ui->lSkin->setText(tr("%1").arg(value));
     skin->GetProperty()->SetOpacity(value/100.0);
-    ren[3]->ResetCamera();
+    renWin->Render();
 }
 
 void MainWindow::on_hsMusle_valueChanged(int value)
@@ -483,6 +482,8 @@ void MainWindow::on_hsSkull_valueChanged(int value)
 {
     this->opacitySkull = value;
     ui->lSkull->setText(tr("%1").arg(value));
+    bone->GetProperty()->SetOpacity(value / 100.0);
+    renWin->Render();
 }
 
 void MainWindow::on_hsBrain_valueChanged(int value)
