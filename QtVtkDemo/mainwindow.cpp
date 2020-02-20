@@ -75,36 +75,6 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-   /* QVTKOpenGLWidget *vtkWidget = new QVTKOpenGLWidget();
-    vtkWidget->setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Expanding);
-    ui->vlVtk->addWidget(vtkWidget);
-
-    vtkNew<vtkVectorText> text;
-    text->SetText("VTK and Qt!");
-    vtkNew<vtkElevationFilter> elevation;
-    elevation->SetInputConnection(text->GetOutputPort());
-    elevation->SetLowPoint(0, 0, 0);
-    elevation->SetHighPoint(10, 0, 0);
-
-    // Mapper
-    vtkNew<vtkPolyDataMapper> mapper;
-    mapper->SetInputConnection(elevation->GetOutputPort());
-
-    // Actor in scene
-    vtkNew<vtkActor> actor;
-    actor->SetMapper(mapper);
-
-    // VTK Renderer
-    vtkNew<vtkRenderer> ren;
-
-    // Add Actor to renderer
-    ren->AddActor(actor);
-
-    // VTK/Qt wedded
-    vtkNew<vtkGenericOpenGLRenderWindow> renderWindow;
-    vtkWidget->setRenderWindow(renderWindow);
-    vtkWidget->renderWindow()->AddRenderer(ren);
-*/
     LoadDicom("D:\\PDImage\\FZS\\FZS CTAfter\\A\\A\\A\\A");
 }
 
@@ -239,22 +209,11 @@ void MainWindow::LoadDicom(QString file)
     renWin->SetMultiSamples(0);
 
 
-
-
     for (int i = 0; i < 4; i++)
     {
         ren[i] = vtkSmartPointer<vtkRenderer>::New();
         renWin->AddRenderer(ren[i]);
     }
-
-
-    //iren = vtkSmartPointer<vtkRenderWindowInteractor>::New();
-    //iren->SetRenderWindow(renWin);
-    
-    //iren->SetRenderWindow(renWin);
-    //iren->SetInteractorStyle(style);
-    //->SetInteractorStyle(style);
-
 
     for (int i = 0; i < 3; i++)
     {
@@ -299,15 +258,13 @@ void MainWindow::LoadDicom(QString file)
         imageViewer2[i]->Render();
         imageViewer2[i]->GetRenderer()->SetBackground(1, 1, 1);
         imageViewer2[i]->GetRenderWindow()->SetWindowName("ImageViewer2D");
-
-
     }
 
     skinExtractor = vtkSmartPointer<vtkMarchingCubes>::New();
 
     //建立一个Marching Cubes 算法的对象，从CT切片数据中提取出皮肤
 
-    skinExtractor->SetValue(0, 500); //提取出CT 值为300
+    skinExtractor->SetValue(0, 300); //提取出CT 值为300
 
     skinExtractor->SetInputConnection(shrink->GetOutputPort());
 
@@ -316,7 +273,7 @@ void MainWindow::LoadDicom(QString file)
     deci->SetInputConnection(skinExtractor->GetOutputPort());
     vtkSmoothPolyDataFilter* smooth =  vtkSmoothPolyDataFilter::New();  //使图像更加光滑
     smooth->SetInputConnection(deci->GetOutputPort());
-    smooth->SetNumberOfIterations(200);
+    smooth->SetNumberOfIterations(100);
     vtkPolyDataNormals* skinNormals = vtkPolyDataNormals::New();  //求法线
     skinNormals->SetInputConnection(smooth->GetOutputPort());
     skinNormals->SetFeatureAngle(60.0);
@@ -339,14 +296,16 @@ void MainWindow::LoadDicom(QString file)
 
      boneExtractor = vtkSmartPointer< vtkMarchingCubes>::New();
     boneExtractor->SetInputConnection(shrink->GetOutputPort());
-    boneExtractor->SetValue(0, 1150);
+    boneExtractor->SetValue(0, 1000);
+    boneExtractor->ComputeGradientsOn();
+    boneExtractor->ComputeScalarsOff();
 
     vtkDecimatePro* boneDeci = vtkDecimatePro::New(); //减少数据读取点，以牺牲数据量加速交互
     boneDeci->SetTargetReduction(0.3);
     boneDeci->SetInputConnection(boneExtractor->GetOutputPort());
     vtkSmoothPolyDataFilter* boneSmooth = vtkSmoothPolyDataFilter::New();  //使图像更加光滑
     boneSmooth->SetInputConnection(boneDeci->GetOutputPort());
-    boneSmooth->SetNumberOfIterations(200);
+    boneSmooth->SetNumberOfIterations(100);
     vtkPolyDataNormals* boneNormals = vtkPolyDataNormals::New();  //求法线
     boneNormals->SetInputConnection(boneSmooth->GetOutputPort());
     boneNormals->SetFeatureAngle(60.0);
